@@ -6,9 +6,11 @@ This is a minimal implementation of an HTML compatible graphics generator for li
 
 Supports 3 control channels, Example:
 
-![Example Output](https://raw.githubusercontent.com/dv-anomaly/cg-controller/main/sample-output.png)
+![Example Output](https://raw.githubusercontent.com/dv-anomaly/cg-controller/main/examples/sample-output.png)
 
-![Screenshot](https://raw.githubusercontent.com/dv-anomaly/cg-controller/main/screenshot.png)
+![Example Output](https://raw.githubusercontent.com/dv-anomaly/cg-controller/main/examples/sample-output-2.png)
+
+![Screenshot](https://raw.githubusercontent.com/dv-anomaly/cg-controller/main/examples/screenshot.png)
 
 ## License
 
