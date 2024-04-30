@@ -250,7 +250,7 @@ ipcMain.on('create-library-item', (event, name) => {
   var item_meta = {
     name: name,
     type: 'cg-library-item',
-    version: 1
+    version: 2
   }
   library.updateMetadata(UUID, item_meta);
   item_meta['uuid'] = UUID;
@@ -400,7 +400,7 @@ function createMainWindow() {
     
     mainWindowState.manage(mainWindow);
 
-    mainWindow.loadFile('index.html');
+    mainWindow.loadFile('html/mainWindow.html');
 
     mainWindow.on('closed', function () {
         mainWindow = null;

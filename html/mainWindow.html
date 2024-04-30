@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>CG Controller</title>
+
+    
+
+    <!-- <link rel="stylesheet" id="bootstrap-css"href="./node_modules/bootstrap/dist/css/bootstrap.min.css"> -->
+    <link rel="stylesheet" id="bootstrap-css" href="../css/bootstrap.min.css">
+    <link rel="stylesheet" href="../css/mainWindow.css">
+    <script src="../node_modules/split.js/split.min.js"></script>
+    <script type="module" src="../js/mainWindow-header.js"></script>
+  </head>
+  <body>
+    <div id="new-presentation" class="modal fade" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Create Presentation</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div id="new-presentation-name" contenteditable="true"></div>
+          </div>
+          <div class="modal-footer">
+            <button id="create-presentation" type="button" class="btn btn-primary">Create Presentation</button>
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="new-playlist" class="modal fade" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Create Playlist</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div id="new-playlist-name" contenteditable="true"></div>
+          </div>
+          <div class="modal-footer">
+            <button id="create-playlist" type="button" class="btn btn-primary">Create Playlist</button>
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="preferences" class="modal fade" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Preferences</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+
+            <div class="form-group">
+              <label>Titler Live URL</label>
+                <input type="text" id="titler_live_url" class="form-control"/>
+            </div>
+
+            <div class="form-group">
+                <label>Webserver Port</label>
+                <input type="number" id="webserver_port" class="form-control" />
+              </div>
+
+          </div>
+          <div class="modal-footer">
+            <button id="save-preferences" type="button" class="btn btn-primary">Save</button>
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="playlist" class="split split-horizontal">
+      <canvas id="stageCanvas"></canvas>
+      <div id="current_playlist" class="split content dragable selectable">
+        
+      </div>
+      <div id="library" class="split content">
+          <div id="inner-library" class="bs-component">
+              <ul class="nav nav-tabs playlist-tabs">
+                <li id="playlist-popover" class="nav-item playlist-tab">
+                  <a class="nav-link active show rounded-0 no-border" data-toggle="tab" href="#playlists_pane">Playlists</a>
+                </li>
+                <li id="library-popover" class="nav-item playlist-tab">
+                  <a class="nav-link rounded-0 no-border" data-toggle="tab" href="#library_pane" >Library</a>
+                </li>
+              </ul>
+              <div id="libraryContent" class="tab-content">
+                <div class="tab-pane active show dragable selectable" id="playlists_pane">
+                  
+                </div>
+                <div class="tab-pane dragable selectable" id="library_pane">
+                  
+                </div>
+              </div>
+            <div id="source-button" class="btn btn-primary btn-xs" style="display: none;">&lt; &gt;</div></div>
+      </div>
+    </div>
+    <div id="preview-wrapper" class="split split-horizontal">
+
+      <div id="preview" class="split content">
+      </div>
+
+      <div class="gutter gutter-vertical" style="height: 6px;"></div>
+      <div id="tools" class="split content">
+          <div class="btn-group dropup">
+            <button id="btn-add" type="button" class="btn btn-secondary">
+              <img src="../assets/add.svg" class="toolbar-btn"/>
+            </button>
+            <button id="btn-add-dropdown" type="button" class="btn btn-secondary dropdown-toggle drop-up" data-toggle="dropdown" aria-haspopup="true"
+              aria-expanded="false">
+              <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <div id="addMenu" class="dropdown-menu">
+              
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-secondary btn-bible" data-toggle="popover" data-placement="top">
+            <img src="../assets/bible.svg" class="toolbar-btn"/>
+          </button>
+
+          <div id="add-bible" class="hide">
+            <form class="form-inline add-bible" role="form">
+              <div class="form-group">
+                <input type="text" placeholder="Scripture Reference" class="form-control bible-reference"/>
+                <select class="form-control bible-version">
+                  <option>NKJV</option>
+                  <option>KJV</option>
+                  <option>NIV</option>
+                  <option>NLT</option>
+                  <option>ESV</option>
+                  <option>MSG</option>
+                  <option>AMP</option>
+                  <option>AMPC</option>
+                  <option>NASB</option>
+                  <option>HCSB</option>
+                  <option>NLT</option>
+                </select> 
+                <button type="button" class="btn btn-primary btn-bible-add">
+                  <img src="../assets/add.svg" class="toolbar-btn btn-bible-add-image"/>
+                  <img src="../assets/load.gif" class="toolbar-btn btn-bible-load-image"/>
+                </button>                                  
+              </div>
+            </form>
+          </div>
+
+      </div>
+    </div>
+    <div id="program-wrapper" class="split split-horizontal">
+
+      <div id="program" class="split content">
+      </div>
+
+      <div class="gutter gutter-vertical" style="height: 6px;"></div>
+      <div id="pgm-tools" class="split content">
+        <span class="full-btn" id="play-in">
+          <img src="../assets/play.svg"/>
+        </span>
+
+        <span class="full-btn" id="play-out-middle">
+          <img src="../assets/stop.svg"/>
+        </span>
+
+        <span class="full-btn" id="play-out-bottom">
+          <img src="../assets/stop.svg"/>
+        </span>
+
+        <span class="full-btn" id="play-out-promo">
+          <img src="../assets/stop.svg"/>
+        </span>
+      </div>
+    </div>
+      
+
+    <script>
+      Split(['#playlist', '#preview-wrapper', '#program-wrapper'], {
+        sizes: [24,38,38],
+        minSize: [260,400,400],
+        gutterSize: 6,
+        cursor: 'col-resize'
+      })
+
+      Split(['#current_playlist', '#library'], {
+          direction: 'vertical',
+          sizes: [60, 40],
+          gutterSize: 6,
+          cursor: 'row-resize',
+          onDrag: function (sizes) {
+            setHeight();
+          }
+      })
+
+      Split(['#libraryContent'], {
+          direction: 'vertical',
+          sizes: [100],
+          gutterSize: 0,
+          cursor: 'row-resize'
+      })
+    </script>
+
+    <script> window.$ = window.jQuery = require('jquery'); </script>
+    <script src="../js/jquery-ui.min.js"></script>
+    <!-- <script src="./js/jquery.ui.touch-punch.min.js"></script> -->
+    <script src="../js/jquery.ba-throttle-debounce.min.js"></script>
+    <!-- <script src="./node_modules/popper.js/dist/popper.js"></script> -->
+    <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.js"></script>
+
+    <script>
+      function setHeight() {
+        var library_height = $("#library").height() - $(".playlist-tabs").height();
+        $("#libraryContent").children().each(function(){
+          $(this).height(library_height);
+        });
+      }
+
+      $( document ).ready(function() {
+        setHeight();
+      });
+
+      $( window ).resize(function() {
+        setHeight();
+      });
+    </script>
+
+    <script src="../js/qwebchannel.js"></script>
+    <script src="../js/servicehandler.js"></script>
+    <script src="../js/mainWindow-renderer.js"></script>
+<script type="module">
+  import init, { convert_bgra_to_rgba } from '../wasm/bgra_to_rgba/pkg/bgra_to_rgba.js';
+
+  async function loadWasmModule() {
+      await init();
+      window.convertBgraToRgba = convert_bgra_to_rgba; // Expose the function globally
+      console.log("WASM module loaded and function exposed.");
+  }
+
+  loadWasmModule();
+</script>
+
+  
+  </body>
+</html>

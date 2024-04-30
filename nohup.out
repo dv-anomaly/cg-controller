@@ -1,0 +1,12 @@
+[90m[main 2024-04-30T15:09:57.682Z][0m update#setState disabled
+[90m[main 2024-04-30T15:09:57.696Z][0m update#ctor - updates are disabled as there is no update URL
+[91m[main 2024-04-30T15:09:57.813Z][0m [storage state.vscdb] error checking size of workbench.panel.aichat.view.aichat.chatdata: Error: Unexpected number of rows - 0
+[91m[main 2024-04-30T15:09:57.813Z][0m [storage state.vscdb] error checking size of src.vs.platform.reactivestorage.browser.reactiveStorageServiceImpl.persistentStorage.workspaceUser: Error: Unexpected number of rows - 0
+[91m[main 2024-04-30T15:09:57.822Z][0m [storage state.vscdb] error checking size of workbench.panel.aichat.view.aichat.chatdata: Error: Unexpected number of rows - 0
+[91m[main 2024-04-30T15:09:57.823Z][0m [uncaught exception in main]: Error: SQLITE_CANTOPEN: unable to open database file
+[91m[main 2024-04-30T15:09:57.823Z][0m Error: SQLITE_CANTOPEN: unable to open database file
+[91m[main 2024-04-30T15:10:00.196Z][0m vscode-file: Refused to load resource /tmp/.mount_cursorHDOiOq/resources/app/extensions/theme-seti/icons/seti.woff from vscode-file: protocol (original URL: vscode-file://vscode-app/tmp/.mount_cursorHDOiOq/resources/app/extensions/theme-seti/icons/seti.woff)
+[4057:0430/101000.248859:ERROR:gl_surface_presentation_helper.cc(260)] GetVSyncParametersIfAvailable() failed for 1 times!
+[4057:0430/101021.089068:ERROR:gl_surface_presentation_helper.cc(260)] GetVSyncParametersIfAvailable() failed for 2 times!
+[4057:0430/101021.102454:ERROR:gl_surface_presentation_helper.cc(260)] GetVSyncParametersIfAvailable() failed for 3 times!
+[90m[main 2024-04-30T15:10:30.772Z][0m Extension host with pid 4124 exited with code: 0, signal: unknown.

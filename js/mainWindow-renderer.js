@@ -34,7 +34,7 @@ function SavePrefs() {
     ipcRenderer.send('set-prefs', PREFERENCES);
 }
 
-const card_template = '<div class="card border-info mb-3" data-id="%id%"><div class="card-header" contenteditable="false"><div class="sort-handle"><img src="./assets/list.svg"/></div><div class="card-header-text">%name%</div></div><div class="card-body">%content%</div></div>';
+const card_template = '<div class="card border-info mb-3" data-id="%id%" data-name="%name%" data-channel="%channel%"><div class="card-header" contenteditable="false"><div class="sort-handle"><img src="../assets/list.svg"/></div><div class="card-header-text">[%channel_upper%]&nbsp;&nbsp;%name%</div></div><div class="card-body">%content%</div></div>';
 const library_template = '<div class="list-item" id="%id%" data-type="%type%" data-uuid="%uuid%">%name%</div>';
 
 var INPUT_NAME = "CG Controller";
@@ -42,8 +42,9 @@ var ACTIVE_TEMPLATE = null;
 
 const templates = [
     {
-        id: 'Title',
-        name: '[A Block]  Title',
+        id: 'title',
+        channel: 'a',
+        name: 'Title',
         fields: [
             {
                 type: 'title',
@@ -60,8 +61,9 @@ const templates = [
         ]
     },
     {
-        id: 'Scripture',
-        name: '[A Block]  Scripture',
+        id: 'scripture',
+        channel: 'a',
+        name: 'Scripture',
         fields: [
             {
                 type: 'text',
@@ -78,8 +80,9 @@ const templates = [
         ]
     },
     {
-        id: 'Text',
-        name: '[A Block]  Text',
+        id: 'text',
+        channel: 'a',
+        name: 'Text',
         fields: [
             {
                 type: 'text',
@@ -90,8 +93,9 @@ const templates = [
         ]
     },
     {
-        id: 'TextCondensed',
-        name: '[A Block]  Text Condensed',
+        id: 'text-condensed',
+        channel: 'a',
+        name: 'Text Condensed',
         fields: [
             {
                 type: 'text',
@@ -102,8 +106,9 @@ const templates = [
         ]
     },
     {
-        id: 'b-heading',
-        name: '[B Block]  Heading',
+        id: 'heading',
+        channel: 'b',
+        name: 'Heading',
         fields: [
             {
                 type: 'title',
@@ -127,7 +132,8 @@ const templates = [
     },
     {
         id: 'promo-graphic',
-        name: '[Promo]  Graphic',
+        channel: 'c',
+        name: 'Promo Graphic',
         fields: [
             {
                 type: 'text',
@@ -139,7 +145,8 @@ const templates = [
     },
     {
         id: 'promo-video',
-        name: '[Promo]  Video',
+        channel: 'c',
+        name: 'Promo Video',
         fields: [
             {
                 type: 'text',
@@ -178,9 +185,16 @@ function InsertCard(data, id, selectElement, mode) {
         content += item;
     });
     var card = card_template;
+    console.log('data:')
+    console.log(data);
+    console.log(card)
     card = card.replace('%id%', data['id']);
+    card = card.replace('%channel%', data['channel']);
+    card = card.replace('%channel_upper%', data['channel'].toUpperCase());
+    card = card.replace('%name%', data['name']);
     card = card.replace('%name%', data['name']);
     card = card.replace('%content%', content);
+    console.log(card);
     if (id == -1) {
         var element = $(list).append(card);
         var cardIndex = $(list).children().length - 1;
@@ -623,9 +637,10 @@ function PlayIn(index) {
     } else {
         cued_index = -1;
     }
-    $("#program .cued").removeClass("cued");
-    $("#program .live").removeClass("live");
+    var card = $("#program").children().eq(live_index);
 
+    $("#program .cued").removeClass("cued");
+    $("#program .live[data-channel='"+card.data['channel']+"']").removeClass("live");
     $("#program").children().eq(live_index).addClass("live");
 
     if (cued_index == -1 || cued_index == live_index) {
@@ -635,7 +650,6 @@ function PlayIn(index) {
     }
 
     // doplayin
-    var card = $("#program").children().eq(live_index);
 
     var title_name = card.data('id')+style;
     var card_variables = {};
@@ -647,15 +661,19 @@ function PlayIn(index) {
 
     var card_data = {
         'id': card.data('id'),
-        'name': card.find(".card-header-text").text(),
+        'channel': card.data('channel'),
+        'name': card.data('name'),
         fields: [ ]
 
     }
 
     card.find(".card-body").children().each(function (index, card){
         card = $(card);
+        console.log('the data:');
+        console.log(card.data);
         var cardFields = {
             type: card.data("type"),
+            channel: card.data("channel"),
             name: card.data("name"),
             value: card.text(),
             variable: card.data("variable")
@@ -694,12 +712,18 @@ function PlayIn(index) {
     
 }
 
-function PlayOut(block_name) {
-    $("#program .live").removeClass("live");
+function PlayOut(channel) {
+    if (channel == 'all') {
+        $("#program .live").removeClass("live");
+
+    } else {
+        $("#program .live[data-channel='"+channel+"']").removeClass("live");
+
+    }
 
     ipcRenderer.send('send-cmd', {
         cmd: 'playout',
-        block: block_name
+        block: channel
     });
 
     // //do playout
@@ -763,6 +787,8 @@ function RemoveItems() {
 
 function UpdateLibraryItem(render) {
     var libraryItemName = $("#preview").data("library-item");
+    console.log('Library Item:');
+    console.log(libraryItemName)
     var uuid = $("#preview").data("library-item-uuid");
     var items = [];
     $("#preview").children().each(function(index, item) {
@@ -782,7 +808,8 @@ function UpdateLibraryItem(render) {
         });
         items.push({
             id: item.data("id"),
-            name: item.find(".card-header-text").text(),
+            channel: item.data("channel"),
+            name: item.data("name"),
             fields: fields
 
         });
@@ -796,7 +823,7 @@ function UpdateLibraryItem(render) {
     var libraryItem = {
         uuid: uuid,
         type: 'cg-library-item',
-        version: 1,
+        version: 2,
         items: items
     };
 
@@ -822,7 +849,8 @@ function ExportPreviewToText() {
         });
         items.push({
             id: item.data("id"),
-            name: item.find(".card-header-text").text(),
+            channel: item.data("channel"),
+            name: item.data("name"),
             fields: fields
 
         });
@@ -1023,7 +1051,7 @@ $( document ).ready(function() {
     });
 
     $.each(templates, function(index, template){
-        var item = '<a class="dropdown-item" href="#" data-index='+index+'>'+template['name']+'</a>';
+        var item = '<a class="dropdown-item" href="#" data-index='+index+'>['+template['channel'].toUpperCase()+']&nbsp;&nbsp;'+template['name']+'</a>';
         $("#addMenu").append(item);
     });
 
