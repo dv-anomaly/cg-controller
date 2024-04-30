@@ -592,6 +592,13 @@ app.on('activate', function () {
                 data: live_cards['a']
               })
             );
+          } else {
+            connection.sendUTF(
+              JSON.stringify({
+                cmd: 'playout',
+                channel: 'a'
+              })
+            );
           }
           if (live_cards['b'] !== undefined) {
             connection.sendUTF(
@@ -600,12 +607,26 @@ app.on('activate', function () {
                 data: live_cards['b']
               })
             );
+          } else {
+            connection.sendUTF(
+              JSON.stringify({
+                cmd: 'playout',
+                channel: 'b'
+              })
+            );
           }
           if (live_cards['c'] !== undefined) {
             connection.sendUTF(
               JSON.stringify({
                 cmd: 'playin',
                 data: live_cards['c']
+              })
+            );
+          } else {
+            connection.sendUTF(
+              JSON.stringify({
+                cmd: 'playout',
+                channel: 'c'
               })
             );
           }
