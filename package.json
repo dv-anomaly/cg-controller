@@ -20,6 +20,8 @@
   "author": "GitHub",
   "license": "GPL-3.0-only",
   "devDependencies": {
+    "crypto-js": "^4.2.0",
+    "cryptojs": "^2.5.3",
     "electron": "^3.0.4"
   },
   "dependencies": {

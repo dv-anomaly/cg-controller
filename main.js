@@ -14,6 +14,11 @@ let mainWindow;
 let offscreenWindow;
 let wsServer;
 let clients = [];
+let live_cards = {
+  'a': undefined,
+  'b': undefined,
+  'c': undefined
+}
 
 const resource_path = path.join(app.getPath('documents'), 'CG Controller')
 if (!fs.existsSync(resource_path)) {
@@ -316,7 +321,18 @@ function SendMessage(data) {
 }
 
 ipcMain.on('send-cmd', (event, data) => {
+  if (data['cmd'] == 'playin') {
+    live_cards[data['data']['channel']] = data['data'];
+  }
+  if (data['cmd'] == 'playout') {
+    live_cards[data['channel']] = undefined;
+  }
+  console.log('command:');
+
+  console.log(live_cards);
+
   SendMessage(data);
+
 });
 
 
@@ -567,8 +583,31 @@ app.on('activate', function () {
       connection.on('message', function(message) {
         if (message.type === 'utf8') {
           const json = JSON.stringify({ type: 'message', data: message.utf8Data });
-          for (let i = 0; i < clients.length; i++) {
-            clients[i].sendUTF(json);
+          console.log(message);
+
+          if (live_cards['a'] !== undefined) {
+            connection.sendUTF(
+              JSON.stringify({
+                cmd: 'playin',
+                data: live_cards['a']
+              })
+            );
+          }
+          if (live_cards['b'] !== undefined) {
+            connection.sendUTF(
+              JSON.stringify({
+                cmd: 'playin',
+                data: live_cards['b']
+              })
+            );
+          }
+          if (live_cards['c'] !== undefined) {
+            connection.sendUTF(
+              JSON.stringify({
+                cmd: 'playin',
+                data: live_cards['c']
+              })
+            );
           }
         }
       });

@@ -2,6 +2,7 @@
 // be executed in the renderer process for that window.
 // All of the Node.js APIs are available in this process.
 const { ipcRenderer } = require('electron');
+const CryptoJS = require("crypto-js");
 
 var SERVER_URL = 'http://127.0.0.1:8022/Bitstorm/cg-controller.html';
 
@@ -20,6 +21,37 @@ PREFERENCES['last_bible_version']  = 'NKJV';
 var bible_ref_focus = false;
 var bible_ver_focus = false;
 var bible_add_focus = false;
+var live_cards = {
+    'a': {
+        uuid: undefined,
+        sum: undefined
+    },
+    'b': {
+        uuid: undefined,
+        sum: undefined
+    },
+    'c': {
+        uuid: undefined,
+        sum: undefined
+    }
+}
+
+
+function generateUUID() { // Public Domain/MIT
+    var d = new Date().getTime();
+    if (typeof performance !== 'undefined' && typeof performance.now === 'function'){
+        d += performance.now(); //use high-precision timer if available
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = (d + Math.random() * 16) % 16 | 0;
+        d = Math.floor(d / 16);
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+
+  function md5Hash(text) {
+    return CryptoJS.MD5(text).toString();
+}
 
 function SetPref(key, value) {
     PREFERENCES[key] = value;
@@ -34,7 +66,7 @@ function SavePrefs() {
     ipcRenderer.send('set-prefs', PREFERENCES);
 }
 
-const card_template = '<div class="card border-info mb-3" data-id="%id%" data-name="%name%" data-channel="%channel%"><div class="card-header" contenteditable="false"><div class="sort-handle"><img src="../assets/list.svg"/></div><div class="card-header-text">[%channel_upper%]&nbsp;&nbsp;%name%</div></div><div class="card-body">%content%</div></div>';
+const card_template = '<div class="card border-info mb-3 %live%" data-id="%id%" data-uuid="%uuid%" data-sum="%sum%" data-name="%name%" data-channel="%channel%"><div class="card-header" contenteditable="false"><div class="sort-handle"><img src="../assets/list.svg"/></div><div class="card-header-text">[%channel_upper%]&nbsp;&nbsp;%name%</div></div><div class="card-body">%content%</div></div>';
 const library_template = '<div class="list-item" id="%id%" data-type="%type%" data-uuid="%uuid%">%name%</div>';
 
 var INPUT_NAME = "CG Controller";
@@ -185,19 +217,31 @@ function InsertCard(data, id, selectElement, mode) {
         content += item;
     });
     var card = card_template;
-    console.log('data:')
-    console.log(data);
-    console.log(card)
     card = card.replace('%id%', data['id']);
     card = card.replace('%channel%', data['channel']);
     card = card.replace('%channel_upper%', data['channel'].toUpperCase());
+    card = card.replace('%uuid%', data['uuid']);
+    card = card.replace('%sum%', data['sum']);
     card = card.replace('%name%', data['name']);
     card = card.replace('%name%', data['name']);
     card = card.replace('%content%', content);
-    console.log(card);
+
+    if (mode == "program") {
+        if (data['uuid'] == live_cards[data['channel']]['uuid'] && data['sum'] == live_cards[data['channel']]['sum']) {
+            card = card.replace('%live%', 'live');
+        } else {
+            console.log()
+            card.replace('%live%', '');
+
+        }
+    } else {
+        card.replace('%live%', '');
+    }
+
     if (id == -1) {
-        var element = $(list).append(card);
         var cardIndex = $(list).children().length - 1;
+        var element = $(list).append(card);
+
     }  else {
         //$("#preview").append(card);
         var element = $(list).children().eq(id).after(card);
@@ -228,6 +272,9 @@ function AddNewCard(id, template) {
     if(typeof template === 'undefined') {
         template = templates[add_index];
     }
+
+    template['uuid'] = generateUUID();
+    template['sum'] = md5Hash(JSON.stringify(template['fields']));
 
     InsertCard(template, index, true);
 
@@ -271,7 +318,6 @@ function RenameItem(item, task) {
 
             ipcRenderer.send('rename-item', itemType, oldValue, newValue);
 
-            console.log(PREFERENCES['select_on_refresh']);
             SavePrefs();
             break;
 
@@ -452,7 +498,11 @@ function UpdateEvents() {
         e.preventDefault();
 
         if (e.which == 1) {
-            PlayIn(item.index());
+            if (item.hasClass('live')) {
+                PlayOut(item.data('channel'));
+            } else {
+                PlayIn(item.index());
+            }
         }
         if (e.which == 3) {
             Cue(item.index());
@@ -522,7 +572,6 @@ function UpdateEvents() {
     $(".list-item").off("focusout");
     $(".list-item").on("focusout", function(e){
         if ($(e.currentTarget).hasClass("editing")) {
-            console.log('focusout');
             RenameItem(e.currentTarget, 'stop');
         }
         
@@ -620,8 +669,6 @@ function PlayIn(index) {
     } else {
         var style = 'Full';
     }
-    console.log('playing in');
-    console.log(style);
 
     if (typeof index !== 'undefined') {
         live_index = index;
@@ -638,10 +685,6 @@ function PlayIn(index) {
         cued_index = -1;
     }
     var card = $("#program").children().eq(live_index);
-
-    $("#program .cued").removeClass("cued");
-    $("#program .live[data-channel='"+card.data['channel']+"']").removeClass("live");
-    $("#program").children().eq(live_index).addClass("live");
 
     if (cued_index == -1 || cued_index == live_index) {
         Cue(live_index);
@@ -661,6 +704,8 @@ function PlayIn(index) {
 
     var card_data = {
         'id': card.data('id'),
+        'uuid': card.data('uuid'),
+        'sum': card.data('sum'),
         'channel': card.data('channel'),
         'name': card.data('name'),
         fields: [ ]
@@ -669,8 +714,6 @@ function PlayIn(index) {
 
     card.find(".card-body").children().each(function (index, card){
         card = $(card);
-        console.log('the data:');
-        console.log(card.data);
         var cardFields = {
             type: card.data("type"),
             channel: card.data("channel"),
@@ -680,6 +723,13 @@ function PlayIn(index) {
         }
         card_data['fields'].push(cardFields);
     });
+
+    $("#program .cued").removeClass("cued");
+    $("#program .live[data-channel='"+card.data('channel')+"']").removeClass("live");
+    live_cards[card.data('channel')] = card_data;
+    console.log('live_cards: ');
+    console.log(live_cards);
+    $("#program").children().eq(live_index).addClass("live");
 
     ipcRenderer.send('send-cmd', 
         { 
@@ -705,25 +755,37 @@ function PlayIn(index) {
     //     ACTIVE_TEMPLATE = title_name;
     // }
     
-    console.log("playout");
-    console.log(ACTIVE_TEMPLATE);
-    console.log(title_name);
-    console.log(card_variables);
     
 }
 
 function PlayOut(channel) {
     if (channel == 'all') {
         $("#program .live").removeClass("live");
+        live_cards = {
+            'a': {
+                uuid: undefined,
+                sum: undefined
+            },
+            'b': {
+                uuid: undefined,
+                sum: undefined
+            },
+            'c': {
+                uuid: undefined,
+                sum: undefined
+            }
+        };
 
     } else {
         $("#program .live[data-channel='"+channel+"']").removeClass("live");
+        live_cards[channel]['uuid'] = undefined;
+        live_cards[channel]['sum'] = undefined;
 
     }
 
     ipcRenderer.send('send-cmd', {
         cmd: 'playout',
-        block: channel
+        channel: channel
     });
 
     // //do playout
@@ -787,8 +849,6 @@ function RemoveItems() {
 
 function UpdateLibraryItem(render) {
     var libraryItemName = $("#preview").data("library-item");
-    console.log('Library Item:');
-    console.log(libraryItemName)
     var uuid = $("#preview").data("library-item-uuid");
     var items = [];
     $("#preview").children().each(function(index, item) {
@@ -808,13 +868,14 @@ function UpdateLibraryItem(render) {
         });
         items.push({
             id: item.data("id"),
+            uuid: item.data('uuid'),
+            sum: md5Hash(JSON.stringify(fields)),
             channel: item.data("channel"),
             name: item.data("name"),
             fields: fields
 
         });
         if (render) {
-            console.log('rendering...');
             CgRender(render_variables);
         }
         
@@ -841,6 +902,8 @@ function ExportPreviewToText() {
             card = $(card);
             var cardFields = {
                 type: card.data("type"),
+                uuid: card.data('uuid'),
+                sum: card.data('sum'),
                 name: card.data("name"),
                 value: card.text(),
                 variable: card.data("variable")
@@ -849,6 +912,8 @@ function ExportPreviewToText() {
         });
         items.push({
             id: item.data("id"),
+            uuid: item.data('uuid'),
+            sum: item.data('sum'),
             channel: item.data("channel"),
             name: item.data("name"),
             fields: fields
@@ -866,7 +931,6 @@ function ExportPreviewToText() {
         
     }
 
-    console.log(text);
 }
 function UpdatePlaylistItem() {
     var playlistItemName = $("#current_playlist").data("playlist-item");
@@ -1003,8 +1067,6 @@ $( document ).ready(function() {
 
     PREFERENCES = ipcRenderer.sendSync('get-prefs');
     
-    console.log('getting websocket url');
-    console.log(GetPref('titler_live_url'));
     ipcRenderer.send('get-websocket-url', GetPref('titler_live_url'));
 
     $(".btn-bible").popover({
@@ -1072,7 +1134,6 @@ $( document ).ready(function() {
 
     $('.btn-bible').off();
     $('.btn-bible').on('mousedown', function(e) {
-        console.log('clicked');
         if(!bible_add_focus && !bible_ref_focus && !bible_ver_focus) {
             $('.btn-bible').popover('show');
         }
@@ -1089,7 +1150,6 @@ $( document ).ready(function() {
 
             ref.focus(function(){
                 bible_ref_focus = true;
-                console.log('ref focus');
             });
             ref.blur(function(){
                 bible_ref_focus = false;
@@ -1097,13 +1157,11 @@ $( document ).ready(function() {
                     if(!bible_add_focus && !bible_ref_focus && !bible_ver_focus) {
                         $('.btn-bible').popover('hide');
                     }
-                    console.log('ref blur');
                 }, 1);
             });
 
             version.focus(function(){
                 bible_ver_focus = true;
-                console.log('ver focus');
             });
             version.blur(function(){
                 bible_ver_focus = false;
@@ -1111,13 +1169,11 @@ $( document ).ready(function() {
                     if(!bible_add_focus && !bible_ref_focus && !bible_ver_focus) {
                         $('.btn-bible').popover('hide');
                     }
-                    console.log('ver blur');
                 }, 1);
             });
             
             add_btn.focus(function(){
                 bible_add_focus = true;
-                console.log('add focus');
             });
             add_btn.blur(function(){
                 bible_add_focus = false;
@@ -1125,7 +1181,6 @@ $( document ).ready(function() {
                     if(!bible_add_focus && !bible_ref_focus && !bible_ver_focus) {
                         $('.btn-bible').popover('hide');
                     }
-                    console.log('add blur');
                 }, 1);
             });
 
@@ -1140,7 +1195,6 @@ $( document ).ready(function() {
                     e.preventDefault();
                     var reference = $("div.popover-body > form.add-bible").find('.bible-reference');
                     var version = $("div.popover-body > form.add-bible").find('.bible-version');
-                    console.log('Ref: '+reference.val()+' Ver: '+version.val())
                     SetPref('last_bible_ref', input.val());
                     ipcRenderer.send('get-scripture', reference.val(), version.val());
                     $('div.popover-body').find('.btn-bible-add-image').hide();
@@ -1155,7 +1209,6 @@ $( document ).ready(function() {
                     e.preventDefault();
                     var reference = $("div.popover-body > form.add-bible").find('.bible-reference');
                     var version = $("div.popover-body > form.add-bible").find('.bible-version');
-                    console.log('Ref: '+reference.val()+' Ver: '+version.val())
                     SetPref('last_bible_ref', input.val());
                     ipcRenderer.send('get-scripture', reference.val(), version.val());
                     $('div.popover-body').find('.btn-bible-add-image').hide();
@@ -1169,7 +1222,6 @@ $( document ).ready(function() {
             $(add_btn).on('click', function() {
                 var reference = $("div.popover-body > form.add-bible").find('.bible-reference');
                 var version = $("div.popover-body > form.add-bible").find('.bible-version');
-                console.log('Ref: '+reference.val()+' Ver: '+version.val())
                 SetPref('last_bible_ref', input.val());
                 ipcRenderer.send('get-scripture', reference.val(), version.val());
                 //$('.btn-bible').popover('hide');
@@ -1356,7 +1408,6 @@ ipcRenderer.on('metadata', (event, meta) => {
 
 
 ipcRenderer.on('add-scripture', (event, data) => {
-    console.log(data);
     if (data['status'] == 'success') {
         for(var verse of data['verses']) {
             var text = verse['text'];
@@ -1389,7 +1440,6 @@ ipcRenderer.on('add-scripture', (event, data) => {
 
 
 ipcRenderer.on('show-preferences', (event) => {
-    console.log('show preferences');
     ShowPreferences();
 });
 
@@ -1470,7 +1520,6 @@ function StartBackend(ws_url) {
             }
         }
 
-        console.log(titler_variables);
 
         // Declare variables that this input will use here, instead of hardcoding these in the XML defintion file. These can be changed at any time later.
         scheduler.updateInputDefinition(INPUT_NAME, {
@@ -1480,12 +1529,9 @@ function StartBackend(ws_url) {
         // Establish a callback for when one or more variable value changes. This is usefull to sync values between several browser windows, for example.
         // Normaly, only the values that actually changed are contained in the callback, however when first connecting the server, all variables' values will be sent over. This is to make sure the controls are populated with initial default values and ensures the values aren't lost when reloading the page, for example.
         scheduler.variablesChanged.connect(function (inputName, variables) {
-            console.log('variablesChanged:')
-            console.log(variables);
             // Because there is a single server for all HTML inputs, this callback will be fired for any variable change and contain data we're not neccessary interested in, so we filter using the input name we set in the definition xml file.
             if (inputName == INPUT_NAME) {
                 console.debug("Variables changed", variables);
-                console.log(variables);
 
             }
         });
@@ -1508,8 +1554,6 @@ window.onbeforeunload = function() {
 };
 
 function CgRender(data) {
-    console.log('render');
-    console.log(data);
     try {
         scheduler.scheduleVariablesEx(
             "render", //action
@@ -1550,7 +1594,6 @@ function CgUpdate(data) {
 }
 
 function CgPlayIn(title_name, data) {
-    console.log(title_name);
     try {
         scheduler.scheduleVariablesEx(
             "animatein", //action
