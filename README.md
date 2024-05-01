@@ -2,6 +2,8 @@
 
 **HTML & JavaScript Based Graphics Generator**
 
+![Screenshot](https://raw.githubusercontent.com/dv-anomaly/cg-controller/main/examples/screenshot1.png)
+
 This is a minimal implementation of an HTML compatible graphics generator for livestreaming use. A work in progress, but usable.
 
 Supports 3 control channels, see screenshots below for an example use case. Additional resources required for rendering/output are not currently included or documented. The application expects these files to be in `[User's Documents]/CG Controller`. If you are interested in this project, open an issue, and I'll work on including some sample content. 
@@ -22,7 +24,5 @@ Supports 3 control channels, see screenshots below for an example use case. Addi
 ![Example Output](https://raw.githubusercontent.com/dv-anomaly/cg-controller/main/examples/sample-output.png)
 
 ![Example Output](https://raw.githubusercontent.com/dv-anomaly/cg-controller/main/examples/sample-output-2.png)
-
-![Screenshot](https://raw.githubusercontent.com/dv-anomaly/cg-controller/main/examples/screenshot1.png)
 
 ![Screenshot](https://raw.githubusercontent.com/dv-anomaly/cg-controller/main/examples/screenshot2.png)
