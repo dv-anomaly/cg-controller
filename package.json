@@ -22,7 +22,8 @@
   "devDependencies": {
     "crypto-js": "^4.2.0",
     "cryptojs": "^2.5.3",
-    "electron": "^3.0.4"
+    "electron": "^3.0.4",
+    "sqlite3": "^5.1.7"
   },
   "dependencies": {
     "bootstrap": "^4.1.3",

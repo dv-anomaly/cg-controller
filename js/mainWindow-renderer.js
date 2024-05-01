@@ -685,13 +685,6 @@ function PlayIn(index) {
         cued_index = -1;
     }
     var card = $("#program").children().eq(live_index);
-
-    if (cued_index == -1 || cued_index == live_index) {
-        Cue(live_index);
-    } else {
-        Cue(cued_index);
-    }
-
     // doplayin
 
     var title_name = card.data('id')+style;
@@ -727,9 +720,13 @@ function PlayIn(index) {
     $("#program .cued").removeClass("cued");
     $("#program .live[data-channel='"+card.data('channel')+"']").removeClass("live");
     live_cards[card.data('channel')] = card_data;
-    console.log('live_cards: ');
-    console.log(live_cards);
     $("#program").children().eq(live_index).addClass("live");
+
+    if (cued_index == -1 || cued_index == live_index) {
+        Cue(live_index);
+    } else {
+        Cue(cued_index);
+    }
 
     ipcRenderer.send('send-cmd', 
         { 
@@ -1328,6 +1325,7 @@ $( document ).ready(function() {
 
     ipcRenderer.send('get-library-data');
 
+    ipcRenderer.send('get-bibles');
 
 }); // End On Ready
 
@@ -1408,30 +1406,31 @@ ipcRenderer.on('metadata', (event, meta) => {
 
 
 ipcRenderer.on('add-scripture', (event, data) => {
+    console.log('scripture:')
+    console.log(data);
     if (data['status'] == 'success') {
         for(var verse of data['verses']) {
-            var text = verse['text'];
-            var ref = data['book']+' '+data['chapter']+':'+verse['num']+' '+data['version'];
-
             var card_details = {
-                id: 'Scripture',
+                id: 'scripture',
+                channel: 'a',
                 name: 'Scripture',
                 fields: [
                     {
                         type: 'text',
                         name: 'Scripture',
-                        value: text,
+                        value: verse['scripture'],
                         variable: 'Scripture_Scripture'
                     },
                     {
                         type: 'text',
                         name: 'Reference',
-                        value: ref,
+                        value: verse['reference'],
                         variable: 'Scripture_Reference'
                     }
                 ]
             }
-            AddNewCard('Scripture', card_details);
+
+            AddNewCard('scripture', card_details);
             $('div.popover-body').find('.btn-bible-load-image').hide();
             $('div.popover-body').find('.btn-bible-add-image').show();
         }
@@ -1486,6 +1485,14 @@ ipcRenderer.on('cue', (event, index) => {
 ipcRenderer.on('image-update', (event, data) => {
     rgba = window.convertBgraToRgba(data);
     drawArray(rgba,1919,1079);
+});
+
+    
+ipcRenderer.on('bibles', (event, bibles) => {
+    $('.bible-version').empty();
+    bibles.forEach(bible => {
+        $('.bible-version').append(`<option label="${bible['Abbreviation']} - ${bible['Title']}">${bible['Abbreviation']}</option>`);
+    });
 });
 
 
