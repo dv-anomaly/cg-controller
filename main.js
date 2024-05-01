@@ -947,61 +947,93 @@ app.on('activate', function () {
       return;
     }
 
-    const bibleFile = bibles.find(b => b.Abbreviation === version);
-    if (!bibleFile) {
-      console.error('Bible version not found:', version);
-      return;
-    }
-
-    const dbPath = path.join(resource_path, 'Bibles', bibleFile.File);
-    const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
-
-    let query = `SELECT * FROM Bible WHERE Book = ${ref.bookNumber} AND Chapter BETWEEN ${ref.chapterStart} AND ${ref.chapterEnd}`;
-
-    db.all(query, (err, rows) => {
-      if (err) {
-        console.error('Database error:', err.message);
+    if (ref.book !== undefined && ref.bookNumber !== undefined && ref.chapterStart !== undefined && ref.verseStart !== undefined && ref.chapterEnd !== undefined && ref.verseEnd !== undefined) {
+      const bibleFile = bibles.find(b => b.Abbreviation === version);
+      if (!bibleFile) {
+        console.error('Bible version not found:', version);
+        var data = {
+          status: 'failed',
+          message: 'Bible version not found.'
+        };
+        mainWindow.webContents.send('add-scripture', data);
         return;
       }
 
-      var scriptures = [];
-      for (row in rows) {
-        row = rows[row];
-        if (ref.chapterStart == ref.chapterEnd) {
-          if (row.Verse >= ref.verseStart && row.Verse <= ref.verseEnd) {
-            scriptures.push(row);
+      const dbPath = path.join(resource_path, 'Bibles', bibleFile.File);
+      const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+        if (err) {
+          console.error('Database connection error:', err.message);
+          var data = {
+            status: 'failed',
+            message: 'Database connection error.'
+          };
+          mainWindow.webContents.send('add-scripture', data);
+          return;
+        }
+      });
+
+      let query = `SELECT * FROM Bible WHERE Book = ${ref.bookNumber} AND Chapter BETWEEN ${ref.chapterStart} AND ${ref.chapterEnd}`;
+
+      db.all(query, (err, rows) => {
+        if (err) {
+          console.error('Database query error:', err.message);
+          var data = {
+            status: 'failed',
+            message: 'Database query error.'
+          };
+          mainWindow.webContents.send('add-scripture', data);
+          db.close();
+          return;
+        }
+
+        var scriptures = [];
+        for (row in rows) {
+          row = rows[row];
+          if (ref.chapterStart == ref.chapterEnd) {
+            if (row.Verse >= ref.verseStart && row.Verse <= ref.verseEnd) {
+              scriptures.push(row);
+            }
+          } else {
+            if (row.Chapter == ref.chapterStart && row.Verse >= ref.verseStart) {
+              scriptures.push(row);
+            } else if (row.Chapter < ref.chapterEnd && row.Chapter > ref.chapterStart) {
+              scriptures.push(row);
+            } else if (row.Chapter == ref.chapterEnd && row.Verse <= ref.verseEnd) {
+              scriptures.push(row);
+            }
+          }
+        }
+        const verses = scriptures.map(row => ({
+          reference: `${ref.book.replace(/\b\w/g, char => char.toUpperCase())} ${row.Chapter}:${row.Verse} ${version}`,
+          scripture: `${row.Scripture}`
+        }));
+
+        if(verses.length > 0) {
+          var data = {
+            status: 'success',
+            verses: verses
           }
         } else {
-          if (row.Chapter == ref.chapterStart && row.Verse >= ref.verseStart) {
-            scriptures.push(row);
-          } else if (row.Chapter < ref.chapterEnd && row.Chapter > ref.chapterStart) {
-            scriptures.push(row);
-          } else if (row.Chapter == ref.chapterEnd && row.Verse <= ref.verseEnd) {
-            scriptures.push(row);
+          var data = {
+            status: 'failed',
+            message: 'Scripture not found.',
           }
         }
-      }
-      const verses = scriptures.map(row => ({
-        reference: `${ref.book.replace(/\b\w/g, char => char.toUpperCase())} ${row.Chapter}:${row.Verse} ${version}`,
-        scripture: `${row.Scripture}`
-      }));
 
-      if(verses.length > 0) {
-        var data = {
-          status: 'success',
-          verses: verses
-        }
-      } else {
-        var data = {
-          status: 'failed',
-          message: 'Scripture not found.',
-        }
+        mainWindow.webContents.send('add-scripture', data);
+
+        db.close();
+      });
+    } else {
+      var data = {
+        status: 'failed',
+        message: 'Scripture not found.',
       }
 
       mainWindow.webContents.send('add-scripture', data);
+    }
 
-      db.close();
-    });
+    
   }
   
 

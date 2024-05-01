@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron . --no-sandbox",
+    "rebuild": "electron-rebuild -f -w sqlite3",
     "package-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --icon=assets/icons/icon.icns --prune=true --out=release-builds --ignore=release-builds --ignore=documents --ignore=wasm",
     "package-win": "electron-packager . \"CG Controller\" --overwrite --asar=true --platform=win32 --arch=ia32 --icon=assets/icons/icon.ico --prune=true --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"CG Controller\" --ignore=release-builds --ignore=documents --ignore=schema --ignore=wasm",
     "package-lin": "electron-packager . \"CG Controller\" --overwrite --asar=false --platform=linux --arch=x64 --icon=assets/icons/icon.png --prune=true --out=release-builds --ignore=release-builds --ignore=documents --ignore=wasm"
@@ -20,14 +21,13 @@
   "author": "GitHub",
   "license": "GPL-3.0-only",
   "devDependencies": {
-    "crypto-js": "^4.2.0",
-    "cryptojs": "^2.5.3",
     "electron": "^3.0.4",
-    "sqlite3": "^5.1.7"
+    "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
     "bootstrap": "^4.1.3",
     "cheerio": "^1.0.0-rc.2",
+    "crypto-js": "^4.2.0",
     "electron-context-menu": "^0.10.1",
     "electron-packager": "^13.1.1",
     "electron-window-state": "^5.0.2",
@@ -37,6 +37,7 @@
     "request-promise": "^4.2.2",
     "shelljs": "^0.8.2",
     "split.js": "^1.5.6",
+    "sqlite3": "^5.1.7",
     "url-parse": "^1.4.4",
     "websocket": "^1.0.28",
     "xml2js": "^0.4.19",

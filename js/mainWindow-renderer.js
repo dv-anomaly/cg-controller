@@ -1434,6 +1434,10 @@ ipcRenderer.on('add-scripture', (event, data) => {
             $('div.popover-body').find('.btn-bible-load-image').hide();
             $('div.popover-body').find('.btn-bible-add-image').show();
         }
+    } else {
+        displayErrorMessage(data['message'])
+        $('div.popover-body').find('.btn-bible-load-image').hide();
+        $('div.popover-body').find('.btn-bible-add-image').show();
     }
 });
 
@@ -1639,3 +1643,12 @@ function CgPlayOut(title_name) {
     }
 
 }
+
+function displayErrorMessage(msg) {
+    // Create the message box element if it doesn't exist
+    // Set the message text
+    $('#errMessageBox').text(msg);
+
+    // Show the message box with fade in, wait 3 seconds, then fade out
+    $('#errMessageBox').fadeIn(400).delay(2000).fadeOut(400);
+  }
