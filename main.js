@@ -744,11 +744,11 @@ app.on('activate', function () {
       "1ti": "1 timothy", "2ti": "2 timothy", "tit": "titus", "phm": "philemon",
       "heb": "hebrews", "jas": "james", "1pe": "1 peter", "2pe": "2 peter",
       "1jn": "1 john", "2jn": "2 john", "3jn": "3 john", "jud": "jude", "rev": "revelation",
-      "songs": "songs of solomon", "sngs": "songs of solomon"
+      "songs": "songs of solomon", "sngs": "song of solomon"
     };
 
     other_common = {
-      "song of songs": "songs of solomon", "songs of songs": "songs of solomon"
+      "song of songs": "song of solomon", "songs of songs": "song of solomon"
     }
 
     chapters = {
