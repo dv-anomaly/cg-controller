@@ -425,6 +425,9 @@ function UpdateEvents() {
 
     $("#preview > .card").off("mousedown");
     $("#preview > .card").on("mousedown", function(e){
+        if ($(":focus").hasClass("bible-reference")) {
+            $(".bible-reference").blur();
+        }
         var item = $(e.currentTarget);
         DeFocus();
         SetSelectedScope(item.parent().attr("id"));
@@ -1244,8 +1247,10 @@ $( document ).ready(function() {
 
     $('html').keyup(function(e){
         if (e.keyCode == 46) {
-            e.preventDefault();
-            RemoveItems();
+            if (!$(":focus").hasClass("bible-reference")) {
+                e.preventDefault();
+                RemoveItems();
+            }
         }
     });
 
