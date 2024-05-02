@@ -834,8 +834,16 @@ function RemoveItems() {
     switch(selected_scope) {
         case 'preview':
             if (!$(":focus").hasClass("contenteditable")) {
-                $("#preview > .ui-selected").remove();
+                var selectedItem = $("#preview > .ui-selected");
+                var neighborItem = selectedItem.next();
+                if (neighborItem.length == 0) {
+                    neighborItem = selectedItem.prev();
+                }
+                selectedItem.remove();
                 UpdateLibraryItem();
+                if (neighborItem.length == 1) {
+                    neighborItem.addClass('ui-selected');
+                }
             }
             break;
         case 'library_pane':
