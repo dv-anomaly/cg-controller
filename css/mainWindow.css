@@ -273,3 +273,15 @@ body {
     image-rendering: pixelated;
     display: none;
   }
+
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  * {
+    cursor: default !important;
+  }
+
+  .contenteditable {
+    cursor:auto !important;
+  }

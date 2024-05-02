@@ -190,8 +190,13 @@ ipcMain.on('get-library-data', (event) => {
 });
 
 ipcMain.on('get-library-item', (event, name) => {
-  var data = library.read(name+'.cgl');
-  event.sender.send('library-item', name, data);
+  try {
+    var data = library.read(name+'.cgl');
+    event.sender.send('library-item', name, data); // Send 'library-item' event only if successful
+  } catch (error) {
+    mainWindow.webContents.send('error-message', name+'.cgl not found.');
+    event.sender.send('library-item', '', undefined); 
+  }
 });
 
 ipcMain.on('get-program-item', (event, name, index, goLive) => {
@@ -827,10 +832,12 @@ app.on('activate', function () {
         const parts = ref.split(' ');
         if (parts.length === 3) {
             var book = parts[0] + parts[1];
-            var capterVerse = parts[2];
-        } else {
+            var chapterVerse = parts[2];
+        } else if (parts.length === 2) {
           var book = parts[0];
           var chapterVerse = parts[1];
+        } else {
+          return {}
         }
 
         //Remove spaces for short lookup
@@ -918,17 +925,6 @@ app.on('activate', function () {
           var chapterEnd = chapterVerse;
           var verseEnd = chapters[lookup][chapterEnd];
         }
-
-      
-      
-
-      console.log(book);
-      console.log(lookup);
-      console.log(chapterStart);
-      console.log(verseStart);
-      console.log(chapterEnd);
-      console.log(verseEnd);
-
       return {
         book: lookup,
         bookNumber: book_numbers[lookup],

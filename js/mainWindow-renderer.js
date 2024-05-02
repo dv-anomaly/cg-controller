@@ -259,26 +259,30 @@ function InsertCard(data, id, selectElement, mode) {
 }
 
 function AddNewCard(id, template) {
-    index = $("#preview > .ui-selected").index();
-    size = $("#preview > .ui-selected").length;
-    index = index + size - 1;
-    if (index < 0 ){
-        index = -1;
+    var presentation = $("#preview").data("library-item");
+    if (presentation != undefined && presentation != '') {
+        index = $("#preview > .ui-selected").index();
+        size = $("#preview > .ui-selected").length;
+        index = index + size - 1;
+        if (index < 0 ){
+            index = -1;
+        }
+        if (typeof id == "number") {
+            add_index = id;
+        }
+
+        if(typeof template === 'undefined') {
+            template = templates[add_index];
+        }
+
+        template['uuid'] = generateUUID();
+        template['sum'] = md5Hash(JSON.stringify(template['fields']));
+
+        InsertCard(template, index, true);
+        UpdateLibraryItem(true);
+    } else {
+        displayErrorMessage('Create or select a Presentation First.')
     }
-    if (typeof id == "number") {
-        add_index = id;
-    }
-
-    if(typeof template === 'undefined') {
-        template = templates[add_index];
-    }
-
-    template['uuid'] = generateUUID();
-    template['sum'] = md5Hash(JSON.stringify(template['fields']));
-
-    InsertCard(template, index, true);
-
-    UpdateLibraryItem(true);
 }
 
 function RenameItem(item, task) {
@@ -375,6 +379,7 @@ function UpdateEvents() {
         if (e.keyCode === 13) {
             var item = $(e.currentTarget)
             e.preventDefault(); //Prevent default browser behavior
+            console.log('maybe');
             if (window.getSelection) {
                 var selection = window.getSelection(),
                     range = selection.getRangeAt(0),
@@ -422,12 +427,13 @@ function UpdateEvents() {
 
     */
     
+    $("#preview").on("mousedown", function(e){
+        $(":focus").blur();
+        $('#tools').click();
+    });
 
     $("#preview > .card").off("mousedown");
     $("#preview > .card").on("mousedown", function(e){
-        if ($(":focus").hasClass("bible-reference")) {
-            $(".bible-reference").blur();
-        }
         var item = $(e.currentTarget);
         DeFocus();
         SetSelectedScope(item.parent().attr("id"));
@@ -833,16 +839,49 @@ function RemoveItems() {
             }
             break;
         case 'library_pane':
-            ipcRenderer.send('remove-library-item', $("#library_pane > .ui-selected").text());
-            $("#library_pane > .ui-selected").remove();
+            var selectedItem = $("#library_pane > .ui-selected");
+            var neighborItem = selectedItem.next();
+            if (neighborItem.length == 0) {
+                neighborItem = selectedItem.prev();
+            }
+            selectedItem.remove();
+            ipcRenderer.send('remove-library-item', selectedItem.text());
+            SelectListItem(neighborItem);
+            SaveSelectionState();
+            if (neighborItem.length == 1) {
+                ipcRenderer.send('get-library-item', neighborItem.text());
+            }
+            
             break;
         case 'playlists_pane':
-            ipcRenderer.send('remove-playlist-item', $("#playlists_pane > .ui-selected").text());
-            $("#playlists_pane > .ui-selected").remove();
+            var selectedItem = $("#playlists_pane > .ui-selected");
+            var neighborItem = selectedItem.next();
+            if (neighborItem.length == 0) {
+                neighborItem = selectedItem.prev();
+            }
+
+            ipcRenderer.send('remove-playlist-item', selectedItem.text());
+            selectedItem.remove();
+
+            SelectPlaylistItem(neighborItem);
+            SaveSelectionState();
+            if (neighborItem.length == 1){
+                ipcRenderer.send('get-playlist-item', neighborItem.text());
+            }
             break;
         case 'current_playlist':
-            $("#current_playlist > .ui-selected").remove();
+            var selectedItem = $("#current_playlist > .ui-selected");
+            var neighborItem = selectedItem.next();
+            if (neighborItem.length == 0) {
+                neighborItem = selectedItem.prev();
+            }
+            selectedItem.remove();
             UpdatePlaylistItem();
+            SelectListItem(neighborItem);
+            SaveSelectionState();
+            if (neighborItem.length == 1){
+                ipcRenderer.send('get-library-item', neighborItem.text());
+            }
             break;
     }
 }
@@ -1124,12 +1163,12 @@ $( document ).ready(function() {
     });
 
     $("#btn-add").click(function() {
-        $(".btn-bible").popover('hide');
+        $(":focus").blur();
         AddNewCard();
     });
 
     $("#btn-add-dropdown").click(function() {
-        $(".btn-bible").popover('hide');
+        $(":focus").blur();
     });
 
     $('.btn-bible').off();
@@ -1247,6 +1286,7 @@ $( document ).ready(function() {
 
     $('html').keyup(function(e){
         if (e.keyCode == 46) {
+            
             if (!$(":focus").hasClass("bible-reference")) {
                 e.preventDefault();
                 RemoveItems();
@@ -1257,10 +1297,11 @@ $( document ).ready(function() {
     $('html').keydown(function(e){
         if (e.ctrlKey) {
             if (e.keyCode == 65 || e.keyCode == 97) { // 'A' or 'a'
-                if (!$(":focus").hasClass("contenteditable") && $(".ui-selected").length > 0) {
+                if ($(":focus").length == 0) {
                     e.preventDefault();
                     $(".card").addClass("ui-selected");
                 }
+                
                 
                 // SELECT ALL MARKERS HERE...
             }
@@ -1409,6 +1450,13 @@ ipcRenderer.on('metadata', (event, meta) => {
     METADATA = meta;
 });
 
+ipcRenderer.on('error-message', (event, msg) => {
+    displayErrorMessage(msg);
+});
+
+ipcRenderer.on('libary-error', (event, msg) => {
+    displayErrorMessage(msg);
+});
 
 ipcRenderer.on('add-scripture', (event, data) => {
     console.log('scripture:')
@@ -1440,7 +1488,7 @@ ipcRenderer.on('add-scripture', (event, data) => {
             $('div.popover-body').find('.btn-bible-add-image').show();
         }
     } else {
-        displayErrorMessage(data['message'])
+        displayErrorMessage(data['message']);
         $('div.popover-body').find('.btn-bible-load-image').hide();
         $('div.popover-body').find('.btn-bible-add-image').show();
     }
@@ -1499,11 +1547,11 @@ ipcRenderer.on('image-update', (event, data) => {
     
 ipcRenderer.on('bibles', (event, bibles) => {
     $('.bible-version').empty();
+    bibles.sort((a, b) => a['Abbreviation'].localeCompare(b['Abbreviation']));
     bibles.forEach(bible => {
         $('.bible-version').append(`<option label="${bible['Abbreviation']} - ${bible['Title']}">${bible['Abbreviation']}</option>`);
     });
 });
-
 
 // Titler Live Interface
 
@@ -1652,8 +1700,15 @@ function CgPlayOut(title_name) {
 function displayErrorMessage(msg) {
     // Create the message box element if it doesn't exist
     // Set the message text
-    $('#errMessageBox').text(msg);
-
-    // Show the message box with fade in, wait 3 seconds, then fade out
-    $('#errMessageBox').fadeIn(400).delay(2000).fadeOut(400);
-  }
+    var errMessageBox = $('#errMessageBox').clone();
+    errMessageBox.text(msg);    // Append the cloned message box to the body and show it with fade in, wait 3 seconds, then fade out
+    $('body').append(errMessageBox);
+    $('.errMessageBox').fadeOut(400);
+    errMessageBox.fadeIn(400, function() {
+        setTimeout(function() {
+            errMessageBox.fadeOut(400, function() {
+                errMessageBox.remove();
+            });
+        }, 1600);
+    });
+}
