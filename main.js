@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const windowStateKeeper = require('electron-window-state');
 const parseString = require('xml2js').parseString;
+const ffmpeg = require('fluent-ffmpeg');
+
 
 const http = require('http');
 const WebSocketServer = require('websocket').server;
@@ -179,6 +181,82 @@ module.exports = Library;
 
 let library = new Library();
 library.scan();
+
+ipcMain.on('scan-files', (event, dataType) => {
+  var segments = dataType.split('-');
+  console.log(segments);
+  var fileType = segments[0];
+  var filePath = segments.slice(1).join('/');
+  var fullPath = path.join(resource_path, filePath);
+  console.log(fullPath);
+
+  const videoExtensions = ['mp4', 'webm']; // Define video extensions
+  const imageExtensions = ['jpg', 'png', 'gif']; // Define image extensions
+
+  fs.readdir(fullPath, (err, files) => {
+    if (err) {
+      console.error(err);
+      event.sender.send('scan-files-error', err);
+    } else {
+      var response = [];
+      let promises = [];
+      let matchingFiles;
+      switch (fileType) {
+        case 'video':
+          matchingFiles = files.filter(file => videoExtensions.includes(file.split('.').pop()));
+          matchingFiles.forEach(file => {
+            const thumbPath = path.join(fullPath, '.thumb');
+            if (!fs.existsSync(thumbPath)) {
+              fs.mkdirSync(thumbPath);
+            }
+            var thumbFile = path.join(thumbPath, file+'.png');
+            if (!fs.existsSync(thumbFile)) {
+              promises.push(new Promise((resolve, reject) => {
+                generateThumbnail(path.join(fullPath, file), thumbFile, resolve);
+              }));
+            }
+            response.push({
+              thumb: thumbFile,
+              name: file
+            });
+          });
+          break;
+        case 'image':
+          matchingFiles = files.filter(file => imageExtensions.includes(file.split('.').pop()));
+          console.log(files);
+          matchingFiles.forEach(file => {
+            console.log(file);
+            response.push({
+              thumb: path.join(fullPath, file),
+              name: file
+            });
+          });
+          break;
+        default:
+          matchingFiles = files.filter(file => file.endsWith('.' + fileType));
+          break;
+      }
+
+      Promise.all(promises).then(() => {
+        event.sender.send('files-scanned', {
+          path: filePath,
+          files: response
+        });
+      });
+    }
+  });
+});
+
+function generateThumbnail(videoPath, thumbnailPath, callback) {
+  ffmpeg(videoPath).screenshots({
+    timestamps: ['50%'], // Capture a frame at 50% of the video duration
+    folder: path.dirname(thumbnailPath),
+    filename: path.basename(thumbnailPath), // Thumbnail size with scale
+  }).on('end', () => {
+    callback();
+  });
+}
+
 
 ipcMain.on('get-library-data', (event) => {
   console.log('sending library data');

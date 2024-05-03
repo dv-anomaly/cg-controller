@@ -2,6 +2,7 @@
 // be executed in the renderer process for that window.
 // All of the Node.js APIs are available in this process.
 const { ipcRenderer } = require('electron');
+
 const CryptoJS = require("crypto-js");
 
 var SERVER_URL = 'http://127.0.0.1:8022/Bitstorm/cg-controller.html';
@@ -36,6 +37,7 @@ var live_cards = {
     }
 }
 
+var selectedItems = [];
 
 function generateUUID() { // Public Domain/MIT
     var d = new Date().getTime();
@@ -155,7 +157,7 @@ const templates = [
                 variable: 'Sub_Heading'
             },
             {
-                type: 'text',
+                type: 'video-Backgrounds',
                 name: 'Video URL',
                 value: 'Backgrounds/bar-blue-1.mp4',
                 variable: 'Background_Source',
@@ -168,7 +170,7 @@ const templates = [
         name: 'Promo Graphic',
         fields: [
             {
-                type: 'text',
+                type: 'image-Promo',
                 name: 'Graphic URL',
                 value: 'Promo/discipleship.png',
                 variable: 'Graphic',
@@ -181,7 +183,7 @@ const templates = [
         name: 'Promo Video',
         fields: [
             {
-                type: 'text',
+                type: 'video-Promo',
                 name: 'Video Loop URL',
                 value: 'Promo/refresh-wednesday.mp4',
                 variable: 'Video',
@@ -193,6 +195,7 @@ const templates = [
 var add_index = 0;
 
 function InsertCard(data, id, selectElement, mode) {
+    var card = createCardElement(data, mode);
     if (mode == "program") {
         var list = "#program";
         var contentEditable = false;
@@ -200,62 +203,76 @@ function InsertCard(data, id, selectElement, mode) {
         var list = "#preview";
         var contentEditable = true;
     }
-    var content = '';
-    $.each(data['fields'], function(index, field){
-        var type = 'data-type="'+field['type']+'" ';
-        var name = 'data-name="'+field['name']+'" ';
-        var variable = 'data-variable="'+field['variable']+'"';
-        var varData = type + name + variable;
-        switch (field['type']) {
-            case 'title':
-                var item = '<h4 class="card-title contenteditable" contenteditable="'+contentEditable+'" '+varData+'>'+field['value']+'</h4>';
-                break;
-            case 'text':
-                var item = '<p class="card-text contenteditable" contenteditable="'+contentEditable+'" '+varData+'>'+field['value']+'</p>';
-                break;
-        }
-        content += item;
-    });
-    var card = card_template;
-    card = card.replace('%id%', data['id']);
-    card = card.replace('%channel%', data['channel']);
-    card = card.replace('%channel_upper%', data['channel'].toUpperCase());
-    card = card.replace('%uuid%', data['uuid']);
-    card = card.replace('%sum%', data['sum']);
-    card = card.replace('%name%', data['name']);
-    card = card.replace('%name%', data['name']);
-    card = card.replace('%content%', content);
-
-    if (mode == "program") {
-        if (data['uuid'] == live_cards[data['channel']]['uuid'] && data['sum'] == live_cards[data['channel']]['sum']) {
-            card = card.replace('%live%', 'live');
-        } else {
-            console.log()
-            card.replace('%live%', '');
-
-        }
-    } else {
-        card.replace('%live%', '');
-    }
 
     if (id == -1) {
         var cardIndex = $(list).children().length - 1;
         var element = $(list).append(card);
-
-    }  else {
-        //$("#preview").append(card);
+    } else {
         var element = $(list).children().eq(id).after(card);
-        var cardIndex = id+1;
+        var cardIndex = id + 1;
     }
 
     UpdateEvents();
     if (selectElement) {
         if (cardIndex < 0) {
-            var cardIndex = 0;
+            cardIndex = 0;
         }
         var card = $(list).children().eq(cardIndex);
         SelectCard(card, true);
     }
+}
+
+function createCardElement(data, mode) {
+    var card = $('<div class="card border-info mb-3"><div class="card-header" contenteditable="false"><div class="sort-handle"><img src="../assets/list.svg"/></div><div class="card-header-text">['+data.channel.toUpperCase()+']&nbsp;&nbsp;'+data.name+'</div></div><div class="card-body"></div></div>');
+    
+    var contentEditable = true;
+    if (mode == "program") {
+        contentEditable = false;
+        if (data.uuid == live_cards[data.channel].uuid && data.sum == live_cards[data.channel].sum) {
+            card.addClass('live');
+        }
+    }
+
+    card.attr('data-id', data.id);
+    card.attr('data-uuid', data.uuid);
+    card.attr('data-sum', data.sum);
+    card.attr('data-channel', data.channel);
+    card.attr('data-name', data.name);
+
+    var card_body = card.find('.card-body')
+
+    console.log(data);
+    data.fields.forEach(function(field) {
+        if (field.type.includes('-')){
+            var segments = field.type.split('-');
+            var type = segments[0];
+        } else {
+            var type = field.type;
+        }
+        switch (type) {
+            case 'title':
+                var fieldElement = $('<h4 class="card-title contenteditable" contenteditable="'+contentEditable+'"></h4>');
+                break;
+            case 'text':
+                var fieldElement = $('<p class="card-text contenteditable" contenteditable="'+contentEditable+'"></p>');
+                break;
+            case 'video':
+                var fieldElement = $('<p class="card-text contenteditable file-browser" contenteditable="false"></p>');
+                break;
+                case 'image':
+                    var fieldElement = $('<p class="card-text contenteditable file-browser" contenteditable="false"></p>');
+                    break;
+        }
+        fieldElement.attr('data-type', field.type);
+        fieldElement.attr('data-name', field.name);
+        fieldElement.attr('data-variable', field.variable);
+        fieldElement.text(field.value);
+        card.find('.card-body').append(fieldElement);
+    });
+
+    card = card.prop('outerHTML');
+
+    return card;
 }
 
 function AddNewCard(id, template) {
@@ -369,8 +386,49 @@ function HidePlaylistDialog() {
     $("#new-playlist").modal('toggle');
 }
 
-function UpdateEvents() {
 
+function UpdateEvents() {
+    
+    $('p.file-browser').off('click').on('click', function(e) {
+        console.log('opening file browser');
+        var dataType = $(this).attr('data-type');
+        ipcRenderer.send('scan-files', dataType);
+        var element = $(this);
+        e.stopPropagation(); // Prevent event from bubbling up
+        var fileBrowser = $('#fileBrowser');
+        var loadingIcon = $('<img class="loading" src="../assets/loading.svg"/>');
+        fileBrowser.append(loadingIcon);
+        $('#fileBrowserBg').fadeIn(300);
+        fileBrowser.fadeIn(300);
+        
+         // Send ipcMain a scan-files message with the data-type
+        fileBrowser.off('click').on('click', 'img', function() {
+            var fileName = $(this).attr('data-file');
+            element.text(fileName);
+            $('#fileBrowserBg').fadeOut(300);
+
+            fileBrowser.fadeOut(300, function() {
+                $(this).empty();
+            });
+            UpdateLibraryItem();
+        });
+        
+
+    
+    });
+
+    $(document).on('click mousedown mouseup', function(e) {
+        if (!$(e.target).closest('#fileBrowser').length) {
+            if ($('#fileBrowser').is(':visible')) {
+                e.stopPropagation(); // Prevent event from bubbling up
+                $('#fileBrowserBg').fadeOut(300);
+                $('#fileBrowser').fadeOut(300, function() {
+                    $(this).empty();
+                });
+            }
+        }
+    });
+    
     $('.contenteditable').off('keydown');
     $(".contenteditable").off("input");
 
@@ -659,17 +717,23 @@ function UpdateEvents() {
 
 }
 
+var scrollAnimations = {};
+
 function AutoScroll(wrapper, item, speed) {
     if (typeof speed === 'undefined') {
-        speed = 500;
+        speed = 300;
     }
     var offset = (wrapper.height() / 2) - (item.height() / 2);
     var curPosition = wrapper.scrollTop();
     var newPosition = curPosition + item.offset().top - offset;
-    wrapper.animate({
+    
+    if (scrollAnimations[wrapper]) {
+        scrollAnimations[wrapper].stop();
+    }
+    
+    scrollAnimations[wrapper] = wrapper.stop().animate({
         scrollTop: newPosition
     }, speed);
-
 }
 
 function PlayIn(index) {
@@ -1112,6 +1176,30 @@ var drawArray = function(arr, width, height) {
 
 $( document ).ready(function() {
 
+    $('p.file-browser').click(function(e) {
+        console.log('opening file browser');
+        var element = $(this);
+        e.stopPropagation(); // Prevent event from bubbling up
+        var fileBrowser = $('#fileBrowser').clone().addClass('file-browser-window').appendTo('body');
+        $('#fileBrowserBg').fadeIn(300);
+
+        fileBrowser.fadeIn(300);
+        var dataType = $(this).attr('data-type');
+        console.log('Data Type:', dataType);
+        
+        ipcRenderer.send('scan-files', dataType); // Send ipcMain a scan message with the data-type
+        fileBrowser.on('click', 'img', function() {
+            var fileName = $(this).attr('data-file');
+            element.text(fileName);
+            $('#fileBrowserBg').fadeOut(300);
+
+            fileBrowser.fadeOut(300);
+            UpdateLibraryItem();
+        });
+
+    
+    });
+
     PREFERENCES = ipcRenderer.sendSync('get-prefs');
     
     ipcRenderer.send('get-websocket-url', GetPref('titler_live_url'));
@@ -1164,6 +1252,63 @@ $( document ).ready(function() {
         $("#addMenu").append(item);
     });
 
+    $(document).keydown(function(e) {
+        var focusedElement = $(':focus');
+        var isInputOrTextarea = focusedElement.is('input, textarea');
+        var isContentEditable = focusedElement.attr('contenteditable');
+
+        if (!isInputOrTextarea && !isContentEditable) {
+            if (e.keyCode === 32 || e.keyCode === 13) {
+                e.preventDefault();
+                PlayIn();
+            } else if (e.keyCode === 49) {
+                e.preventDefault();
+                PlayOut('a');
+            } else if (e.keyCode === 50) {
+                e.preventDefault();
+                PlayOut('b');
+            } else if (e.keyCode === 51) {
+                e.preventDefault();
+                PlayOut('c');
+            } else if (e.keyCode === 38) {
+                e.preventDefault();
+                var index = $("#program .cued").index() - 1;
+                if (index >= 0) {
+                    Cue(index);
+                } // Cue previous item
+            } else if (e.keyCode === 40) {
+                e.preventDefault();
+                var index = $("#program .cued").index() + 1;
+                if (index < $('#program').children().length) {
+                    Cue(index);
+                } // Cue next item
+            } else if (e.ctrlKey && e.keyCode === 67) { // Ctrl + C
+                e.preventDefault();
+                selectedItems = [];
+                $("#preview .ui-selected").each(function() {
+                    selectedItems.push($(this).clone());
+                });
+                console.log(selectedItems);
+            } else if (e.ctrlKey && e.keyCode === 86) { // Ctrl + V
+                e.preventDefault();
+                var lastItem = $("#preview .ui-selected:last");
+                console.log(lastItem);
+                selectedItems.forEach(function(item) {
+                    lastItem.removeClass('ui-selected');
+                    newItem = item.clone();
+                    if (lastItem.length == 0) {
+                        $('#preview').append(newItem);
+                    } else {
+                        lastItem.after(newItem);
+                    }
+                    lastItem = newItem;
+                });
+                UpdateLibraryItem();
+                AutoScroll($('#preview'), lastItem, 300);
+            }
+        }
+    });
+    
     $('#save-preferences').click(function (){
         SetPref('titler_live_url', $('#titler_live_url').val());
         SetPref('webserver_port', $('#webserver_port').val());
@@ -1465,6 +1610,18 @@ ipcRenderer.on('error-message', (event, msg) => {
 ipcRenderer.on('libary-error', (event, msg) => {
     displayErrorMessage(msg);
 });
+
+ipcRenderer.on('files-scanned', (event, data) => {
+    console.log('Scanned Files:');
+    console.log(data);
+    $('#fileBrowser').empty(); // Remove all filebrowser elements before appending
+    $('#fileBrowser').append(`<h4 style="margin-bottom: .85em;">CG Controller/${data.path}</h4>`);
+    data.files.forEach(file => {
+        var fileElement = `<li><img src="${file.thumb}" data-file="${data.path}/${file.name}"></li>`;
+        $('#fileBrowser').append(fileElement);
+    });
+});
+
 
 ipcRenderer.on('add-scripture', (event, data) => {
     console.log('scripture:')
