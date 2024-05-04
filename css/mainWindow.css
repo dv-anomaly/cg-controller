@@ -117,6 +117,10 @@ body {
 .full-btn > img {
     width: 36px;
 }
+
+.full-btn.inactive > img {
+    filter: saturate(0) brightness(2.5);
+}
 .full-btn > img:hover {
     opacity: .7;
     cursor: pointer;

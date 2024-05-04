@@ -389,7 +389,7 @@ function HidePlaylistDialog() {
 
 function UpdateEvents() {
     
-    $('p.file-browser').off('click').on('click', function(e) {
+    $('p.file-browser.contenteditable').off('click').on('click', function(e) {
         console.log('opening file browser');
         var dataType = $(this).attr('data-type');
         ipcRenderer.send('scan-files', dataType);
@@ -417,16 +417,11 @@ function UpdateEvents() {
     
     });
 
-    $(document).on('click mousedown mouseup', function(e) {
-        if (!$(e.target).closest('#fileBrowser').length) {
-            if ($('#fileBrowser').is(':visible')) {
-                e.stopPropagation(); // Prevent event from bubbling up
-                $('#fileBrowserBg').fadeOut(300);
-                $('#fileBrowser').fadeOut(300, function() {
-                    $(this).empty();
-                });
-            }
-        }
+    $('#fileBrowserBg').off('click').on('click', function(e){
+        $('#fileBrowserBg').fadeOut(300);
+        $('#fileBrowser').fadeOut(300, function() {
+            $(this).empty();
+        });
     });
     
     $('.contenteditable').off('keydown');
@@ -484,11 +479,6 @@ function UpdateEvents() {
     });
 
     */
-    
-    $("#preview").on("mousedown", function(e){
-        $(":focus").blur();
-        $('#tools').click();
-    });
 
     $("#preview > .card").off("mousedown");
     $("#preview > .card").on("mousedown", function(e){
@@ -595,6 +585,7 @@ function UpdateEvents() {
             SelectPlaylistItem(e.currentTarget);
         }
         if (parent.attr("id") == "library_pane" || parent.attr("id") == "current_playlist") {
+            $('#preview').empty();
             ipcRenderer.send('get-library-item', item.text());
             $(".editing").blur();
             
@@ -793,6 +784,17 @@ function PlayIn(index) {
     $("#program .cued").removeClass("cued");
     $("#program .live[data-channel='"+card.data('channel')+"']").removeClass("live");
     live_cards[card.data('channel')] = card_data;
+    console.log('playin channel:');
+    console.log(card.data('channel'));
+    
+    if (card.data('channel') == 'a') {
+        $('#play-out-middle').removeClass('inactive');
+    } else if (card.data('channel') == 'b') {
+        $('#play-out-bottom').removeClass('inactive');
+    } else if (card.data('channel') == 'c') {
+        $('#play-out-promo').removeClass('inactive');
+    }
+
     $("#program").children().eq(live_index).addClass("live");
 
     if (cued_index == -1 || cued_index == live_index) {
@@ -845,11 +847,21 @@ function PlayOut(channel) {
                 sum: undefined
             }
         };
+            $('#play-out-middle').addClass('inactive');
+            $('#play-out-bottom').addClass('inactive');
+            $('#play-out-promo').addClass('inactive');
 
     } else {
         $("#program .live[data-channel='"+channel+"']").removeClass("live");
         live_cards[channel]['uuid'] = undefined;
         live_cards[channel]['sum'] = undefined;
+        if (channel == 'a') {
+            $('#play-out-middle').addClass('inactive');
+        } else if (channel == 'b') {
+            $('#play-out-bottom').addClass('inactive');
+        } else if (channel == 'c') {
+            $('#play-out-promo').addClass('inactive');
+        }
 
     }
 
@@ -921,6 +933,7 @@ function RemoveItems() {
             SelectListItem(neighborItem);
             SaveSelectionState();
             if (neighborItem.length == 1) {
+                $('#preview').empty();
                 ipcRenderer.send('get-library-item', neighborItem.text());
             }
             
@@ -1175,6 +1188,11 @@ var drawArray = function(arr, width, height) {
   };
 
 $( document ).ready(function() {
+
+    $("#preview").on("mousedown", function(e){
+        $(":focus").blur();
+        $('#tools').click();
+    });
 
     $('p.file-browser').click(function(e) {
         console.log('opening file browser');
@@ -1534,7 +1552,7 @@ ipcRenderer.on('library-data', (event, data) => {
     UpdateEvents();
 });
 
-ipcRenderer.on('library-item', (event, name, data) => {
+/* ipcRenderer.on('library-item', (event, name, data) => {
     $("#preview").children().remove();
     $("#preview").data("library-item", name);
     $("#preview").data("library-item-uuid", data['uuid']);
@@ -1547,9 +1565,123 @@ ipcRenderer.on('library-item', (event, name, data) => {
         CgRender(fields);
     }
     
+}); */
+let abortController;
+
+ipcRenderer.on('library-item', async (event, name, data) => {
+    if (abortController) {
+        abortController.abort();
+        abortController.abort(); // Abort previous processing
+        abortController.abort();
+        abortController.abort();
+        abortController.abort();
+        abortController.abort();
+
+    }
+    
+    abortController = new AbortController();
+
+    const signal = abortController.signal;
+
+    $("#preview").empty();
+    $("#preview").data("library-item", name);
+    $("#preview").data("library-item-uuid", data['uuid']);
+
+    try {
+        await ProcessItems(data['items'], name, signal);
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Aborted');
+        } else {
+            console.error(error);
+        }
+    } finally {
+        abortController = null;
+    }
 });
 
-ipcRenderer.on('program-item', (event, name, data, index, goLive) => {
+async function ProcessItems(items, name, signal) {
+    for(const item of items) {
+        await InsertCardAsync(item, -1, false, name, signal);
+        const fields = {};
+        for(const field of item["fields"]) {
+            fields[field['variable']] = field['value'];
+        }
+        CgRender(fields);
+        // Allow the event loop to handle UI updates
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // Check if the processing should be aborted
+        if (signal.aborted) {
+            throw new DOMException('Aborted', 'AbortError');
+        }
+    }
+}
+
+async function InsertCardAsync(data, id, selectElement, mode, signal) {
+    return new Promise((resolve, reject) => {
+        if (signal.aborted) {
+            reject(new DOMException('Aborted', 'AbortError'));
+            return;
+        }
+
+        const card = $('<div class="card border-info mb-3"><div class="card-header" contenteditable="false"><div class="sort-handle"><img src="../assets/list.svg"/></div><div class="card-header-text">['+data.channel.toUpperCase()+']&nbsp;&nbsp;'+data.name+'</div></div><div class="card-body"></div></div>');
+    
+        const contentEditable = mode === "program" ? false : true;
+
+        card.attr('data-id', data.id);
+        card.attr('data-uuid', data.uuid);
+        card.attr('data-sum', data.sum);
+        card.attr('data-channel', data.channel);
+        card.attr('data-name', data.name);
+
+        const card_body = card.find('.card-body');
+
+        data.fields.forEach((field) => {
+            let type = field.type.includes('-') ? field.type.split('-')[0] : field.type;
+            let fieldElement;
+            switch (type) {
+                case 'title':
+                    fieldElement = $('<h4 class="card-title contenteditable" contenteditable="'+contentEditable+'"></h4>');
+                    break;
+                case 'text':
+                    fieldElement = $('<p class="card-text contenteditable" contenteditable="'+contentEditable+'"></p>');
+                    break;
+                case 'video':
+                case 'image':
+                    fieldElement = $('<p class="card-text contenteditable file-browser" contenteditable="false"></p>');
+                    break;
+            }
+            fieldElement.attr('data-type', field.type);
+            fieldElement.attr('data-name', field.name);
+            fieldElement.attr('data-variable', field.variable);
+            fieldElement.text(field.value);
+            if (mode == "program") {
+                fieldElement.removeClass('contenteditable');
+            }
+            
+            card_body.append(fieldElement);
+        });
+
+        $(mode === "program" ? "#program" : "#preview").append(card);
+
+        UpdateEvents();
+        if (selectElement) {
+            const cardIndex = id == -1 ? $(list).children().length - 1 : id + 1;
+            const cardElement = $(list).children().eq(cardIndex);
+            SelectCard(cardElement, true);
+        }
+
+        resolve();
+    });
+}
+
+
+
+
+
+
+/* ipcRenderer.on('program-item', (event, name, data, index, goLive) => {
     live_index = -1;
     cued_index = -1;
     $("#program").children().remove();
@@ -1564,7 +1696,66 @@ ipcRenderer.on('program-item', (event, name, data, index, goLive) => {
         Cue(index);
     }
     
+}); */
+
+let programAbortController;
+
+ipcRenderer.on('program-item', async (event, name, data, index, goLive) => {
+    if (programAbortController) {
+        programAbortController.abort();
+        programAbortController.abort();
+        programAbortController.abort();
+        programAbortController.abort(); // Abort previous processing
+    }
+    
+    programAbortController = new AbortController();
+
+    const signal = programAbortController.signal;
+
+    live_index = -1;
+    cued_index = -1;
+    $("#program").empty();
+    $("#program").data("library-item", name);
+    var doSelect = false;
+    try {
+        await ProcessProgramItems(data['items'], "program", signal, index, goLive);
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Aborted');
+        } else {
+            console.error(error);
+        }
+    } finally {
+        programAbortController = null;
+    }
 });
+
+async function ProcessProgramItems(items, mode, signal, index, goLive) {
+    var current = 0;
+    for(const item of items) {
+        await InsertCardAsync(item, -1, false, mode, signal);
+        if (goLive && current == index) {
+            PlayIn(index);
+        } else if (current == index){
+            Cue(index);
+        }
+
+        var numChildren = $("#program").children().length;
+        if (current < index) {
+            AutoScroll($('#program'), $('#program').children().last(), 5);
+        }
+
+        current = current + 1;
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // Check if the processing should be aborted
+        if (signal.aborted) {
+            throw new DOMException('Aborted', 'AbortError');
+        }
+    }
+}
+
 
 ipcRenderer.on('playlist-item', (event, name, data) => {
     $("#current_playlist").children().remove();
