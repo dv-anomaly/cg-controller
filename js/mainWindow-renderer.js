@@ -275,30 +275,33 @@ function createCardElement(data, mode) {
     return card;
 }
 
-function AddNewCard(id, template) {
+async function AddNewCard(id, template) {
     var presentation = $("#preview").data("library-item");
-    if (presentation != undefined && presentation != '') {
-        index = $("#preview > .ui-selected").index();
-        size = $("#preview > .ui-selected").length;
+    if (presentation !== undefined && presentation !== '') {
+        let index = $("#preview > .ui-selected").index();
+        let size = $("#preview > .ui-selected").length;
         index = index + size - 1;
-        if (index < 0 ){
+        if (index < 0) {
             index = -1;
         }
-        if (typeof id == "number") {
-            add_index = id;
-        }
+        let add_index = typeof id === "number" ? id : 0;
 
-        if(typeof template === 'undefined') {
+        if (typeof template === 'undefined') {
             template = templates[add_index];
         }
 
         template['uuid'] = generateUUID();
         template['sum'] = md5Hash(JSON.stringify(template['fields']));
 
-        InsertCard(template, index, true);
-        UpdateLibraryItem(true);
+        try {
+            const signal = new AbortController().signal;
+            await InsertCardAsync(template, index, true, "preview", signal);
+            UpdateLibraryItem(true);
+        } catch (error) {
+            console.error('Error inserting card:', error);
+        }
     } else {
-        displayErrorMessage('Create or select a Presentation First.')
+        displayErrorMessage('Create or select a Presentation First.');
     }
 }
 
@@ -489,6 +492,7 @@ function UpdateEvents() {
             SelectCard(item, false);
             var item = $(e.currentTarget);
             var libraryItemName = $("#preview").data("library-item");
+            
             SendToProgram(libraryItemName, item.index(), false);
         }
     });
@@ -501,7 +505,13 @@ function UpdateEvents() {
         var item = $(e.currentTarget);
         var libraryItemName = $("#preview").data("library-item");
         if (!$(":focus").hasClass("contenteditable")) {
-            SendToProgram(libraryItemName, item.index(), true);
+            PlayInCard($(item));
+            if (item.is(':last-child')) {
+                var index = item.index();
+            } else {
+                var index = item.index() + 1;
+            }
+            SendToProgram(libraryItemName, index, false);
         }
     });
 
@@ -830,6 +840,47 @@ function PlayIn(index) {
     
 }
 
+function PlayInCard(card) {
+    var card_data = {
+        'id': card.data('id'),
+        'uuid': card.data('uuid'),
+        'sum': card.data('sum'),
+        'channel': card.data('channel'),
+        'name': card.data('name'),
+        fields: []
+    };
+
+    card.find(".card-body").children().each(function (index, cardField) {
+        cardField = $(cardField);
+        var cardFields = {
+            type: cardField.data("type"),
+            channel: cardField.data("channel"),
+            name: cardField.data("name"),
+            value: cardField.text(),
+            variable: cardField.data("variable")
+        };
+        card_data['fields'].push(cardFields);
+    });
+
+    live_cards[card.data('channel')] = card_data;
+    console.log('Playing in channel:');
+    console.log(card.data('channel'));
+
+    if (card.data('channel') == 'a') {
+        $('#play-out-middle').removeClass('inactive');
+    } else if (card.data('channel') == 'b') {
+        $('#play-out-bottom').removeClass('inactive');
+    } else if (card.data('channel') == 'c') {
+        $('#play-out-promo').removeClass('inactive');
+    }
+
+    ipcRenderer.send('send-cmd', {
+        cmd: 'playin',
+        data: card_data
+    });
+}
+
+
 function PlayOut(channel) {
     if (channel == 'all') {
         $("#program .live").removeClass("live");
@@ -888,6 +939,7 @@ function Cue(index) {
 }
 
 function SendToProgram(name, index, goLive) {
+    
     ipcRenderer.send('get-program-item', name, index, goLive);
 }
 
@@ -1470,7 +1522,7 @@ $( document ).ready(function() {
             if (e.keyCode == 65 || e.keyCode == 97) { // 'A' or 'a'
                 if ($(":focus").length == 0) {
                     e.preventDefault();
-                    $(".card").addClass("ui-selected");
+                    $("#preview .card").addClass("ui-selected");
                 }
                 
                 
@@ -1617,8 +1669,7 @@ async function ProcessItems(items, name, signal) {
         }
     }
 }
-
-async function InsertCardAsync(data, id, selectElement, mode, signal) {
+async function InsertCardAsync(data, id, selectElement, mode, signal, insertAfterSelected = false) {
     return new Promise((resolve, reject) => {
         if (signal.aborted) {
             reject(new DOMException('Aborted', 'AbortError'));
@@ -1634,6 +1685,16 @@ async function InsertCardAsync(data, id, selectElement, mode, signal) {
         card.attr('data-sum', data.sum);
         card.attr('data-channel', data.channel);
         card.attr('data-name', data.name);
+
+        console.log('livecards: ');
+        console.log(live_cards);
+        console.log(data);
+        
+        if (mode == "program") {
+            if (data.uuid == live_cards[data.channel].uuid && data.sum == live_cards[data.channel].sum) {
+                card.addClass('live');
+            }
+        }
 
         const card_body = card.find('.card-body');
 
@@ -1663,20 +1724,23 @@ async function InsertCardAsync(data, id, selectElement, mode, signal) {
             card_body.append(fieldElement);
         });
 
-        $(mode === "program" ? "#program" : "#preview").append(card);
+        const targetContainer = $(mode === "program" ? "#program" : "#preview");
+        if (insertAfterSelected && targetContainer.find('.ui-selected').length > 0) {
+            targetContainer.find('.ui-selected').last().after(card);
+        } else {
+            targetContainer.append(card);
+        }
 
         UpdateEvents();
         if (selectElement) {
-            const cardIndex = id == -1 ? $(list).children().length - 1 : id + 1;
-            const cardElement = $(list).children().eq(cardIndex);
+            const cardIndex = targetContainer.children().index(card);
+            const cardElement = targetContainer.children().eq(cardIndex);
             SelectCard(cardElement, true);
         }
 
         resolve();
     });
 }
-
-
 
 
 
@@ -1813,42 +1877,69 @@ ipcRenderer.on('files-scanned', (event, data) => {
     });
 });
 
-
-ipcRenderer.on('add-scripture', (event, data) => {
+ipcRenderer.on('add-scripture', async (event, data) => {
     console.log('scripture:')
     console.log(data);
     if (data['status'] == 'success') {
-        for(var verse of data['verses']) {
-            var card_details = {
-                id: 'scripture',
-                channel: 'a',
-                name: 'Scripture',
-                fields: [
-                    {
-                        type: 'text',
-                        name: 'Scripture',
-                        value: verse['scripture'],
-                        variable: 'Scripture_Scripture'
-                    },
-                    {
-                        type: 'text',
-                        name: 'Reference',
-                        value: verse['reference'],
-                        variable: 'Scripture_Reference'
-                    }
-                ]
-            }
+        if (abortController) {
+            abortController.abort();
+        }
+        abortController = new AbortController();
+        const signal = abortController.signal;
 
-            AddNewCard('scripture', card_details);
-            $('div.popover-body').find('.btn-bible-load-image').hide();
-            $('div.popover-body').find('.btn-bible-add-image').show();
+        try {
+            await ProcessScripture(data['verses'], 'scripture', signal);
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Scripture processing aborted');
+            } else {
+                console.error(error);
+            }
+        } finally {
+            abortController = null;
         }
     } else {
         displayErrorMessage(data['message']);
-        $('div.popover-body').find('.btn-bible-load-image').hide();
-        $('div.popover-body').find('.btn-bible-add-image').show();
     }
+    $('div.popover-body').find('.btn-bible-load-image').hide();
+    $('div.popover-body').find('.btn-bible-add-image').show();
 });
+
+async function ProcessScripture(verses, type, signal) {
+    for (const verse of verses) {
+        const card_details = {
+            id: type,
+            channel: 'a',
+            name: 'Scripture',
+            fields: [
+                {
+                    type: 'text',
+                    name: 'Scripture',
+                    value: verse['scripture'],
+                    variable: 'Scripture_Scripture'
+                },
+                {
+                    type: 'text',
+                    name: 'Reference',
+                    value: verse['reference'],
+                    variable: 'Scripture_Reference'
+                }
+            ]
+        };
+
+        await InsertCardAsync(card_details, -1, true, type, signal, true);
+        UpdateLibraryItem(true);
+        // Allow the event loop to handle UI updates
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // Check if the processing should be aborted
+        if (signal.aborted) {
+            throw new DOMException('Aborted', 'AbortError');
+        }
+    }
+}
+
+
 
 
 ipcRenderer.on('show-preferences', (event) => {
